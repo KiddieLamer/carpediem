@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 	"time"
@@ -29,8 +30,18 @@ var lastNames = []string{"Smith","Jones","Brown","Taylor","Wilson","Moore",
 	"Anderson","Thomas","Jackson","White","Harris","Martin","Garcia",
 	"Martinez","Robinson","Clark","Lewis","Lee","Walker"}
 
+var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%")
+
 func randName() string {
 	return firstNames[rand.Intn(len(firstNames))] + " " + lastNames[rand.Intn(len(lastNames))]
+}
+
+func randPass() string {
+	b := make([]rune, 16)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
 }
 
 func randYear() int { return 1975 + rand.Intn(31) }
@@ -42,36 +53,59 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 	year := randYear()
 	progress <- fmt.Sprintf("  🆔 %s (%d)", name, year)
 
-	u := launcher.New().Headless(false).MustLaunch()
+	progress <- "  🚀 Launching browser..."
+	u := launcher.New().
+		Headless(false).
+		Logger(io.Discard).
+		Set("disable-blink-features", "AutomationControlled").
+		Set("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36").
+		MustLaunch()
 	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.Close()
 
-	page := browser.MustPage("https://chatgpt.com/auth/login").Context(ctx)
+	// Stealth: bypass automation detection
+	page := browser.MustPage("https://chatgpt.com/").Context(ctx)
+	page.MustEval(`() => {
+		Object.defineProperty(navigator, "webdriver", { get: () => false });
+		window.chrome = { runtime: {} };
+		Object.defineProperty(navigator, "plugins", { get: () => [1,2,3] });
+		Object.defineProperty(navigator, "languages", { get: () => ["en-US","en"] });
+	}`)
 	page.MustWaitLoad()
 	time.Sleep(3)
 
-	// Isi email
+	progress <- "  🔘 Klik Log in..."
+	page.MustElement(`button[data-testid="login-button"]`).MustClick()
+	page.MustWaitStable()
+	time.Sleep(3)
+
+	url := page.MustInfo().URL
+	progress <- fmt.Sprintf("  🌐 URL: %s", url)
+
+	// Isi email (modal langsung muncul dengan #email)
 	progress <- "  📧 Isi email..."
-	page.MustElement("#email").MustInput(email)
+	page.Timeout(15 * time.Second).MustElement("#email").MustInput(email)
 	time.Sleep(1)
-	page.MustElementR("button", "Continue").MustClick()
-	time.Sleep(2)
+	page.Timeout(15 * time.Second).MustElement(`button[type="submit"]`).MustClick()
 
-	// Cek: minta password atau langsung OTP?
-	hasPassword, _, _ := page.Has("#password")
-	if hasPassword && password != "" {
-		progress <- "  🔑 Minta password, isi..."
-		page.MustElement("#password").MustInput(password)
-		time.Sleep(1)
-		page.MustElementR("button", "Continue").MustClick()
-	} else if hasPassword && password == "" {
-		return nil, fmt.Errorf("minta password tapi kosong")
-	} else {
-		progress <- "  📬 Langsung OTP (passwordless)..."
+	// Tunggu redirect ke auth.openai.com/email-verification
+	progress <- "  🌐 Nunggu redirect ke email-verification..."
+	for i := 0; i < 30; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		u := page.MustInfo().URL
+		if strings.Contains(u, "email-verification") {
+			break
+		}
+		time.Sleep(2)
 	}
+	progress <- fmt.Sprintf("  🌐 URL: %s", page.MustInfo().URL)
 
-	// OTP
-	progress <- "  📬 Input OTP di browser..."
+	// OTP — user input manual di browser
+	progress <- "  📬 Cek email, input OTP di browser..."
 	for i := otpDelay; i > 0; i-- {
 		select {
 		case <-ctx.Done():
@@ -82,24 +116,59 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		}
 	}
 
-	// about-you (nama + umur) — mungkin muncul kalo akun baru
-	progress <- "  👤 Isi nama & umur..."
-	time.Sleep(2)
-
-	if el, err := page.Element("#name"); err == nil {
-		el.MustInput(name); time.Sleep(1)
-		if btn, err := page.ElementR("button", "Continue"); err == nil {
-			btn.MustClick()
+	// Tunggu sampai page meninggalkan email-verification (OTP berhasil diverifikasi)
+	progress <- "  ⏳ Nunggu verifikasi OTP..."
+	for i := 0; i < 30; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		u := page.MustInfo().URL
+		if !strings.Contains(u, "email-verification") {
+			break
 		}
 		time.Sleep(2)
 	}
+	progress <- fmt.Sprintf("  🌐 URL: %s", page.MustInfo().URL)
 
-	if el, err := page.Element("#birthDate"); err == nil {
-		el.MustInput(fmt.Sprintf("%d", year)); time.Sleep(1)
-		if btn, err := page.ElementR("button", "Continue"); err == nil {
-			btn.MustClick()
-		}
-		time.Sleep(2)
+	// about-you (nama + umur) — kalo langsung ke chatgpt.com berarti akun existing
+	progress <- "  👤 Isi Full name & Age..."
+	time.Sleep(2)
+
+	// Cari input name — label text "Full name"
+	if el, err := page.ElementByJS(rod.Eval(`() => {
+		const label = [...document.querySelectorAll('div')].find(d => d.textContent.trim() === 'Full name');
+		if (!label) return null;
+		const container = label.closest('div')?.parentElement;
+		return container?.querySelector('input');
+	}`)); err == nil {
+		el.MustInput(name); progress <- "  ✅ Name diisi"
+		time.Sleep(1)
+	} else {
+		progress <- "  ⚠️ Input name gak ketemu"
+	}
+
+	if btn, err := page.Element(`button[type="submit"]`); err == nil {
+		btn.MustClick(); time.Sleep(2)
+	}
+
+	// Cari input age — label text "Age" atau "Birth date"
+	if el, err := page.ElementByJS(rod.Eval(`() => {
+		const label = [...document.querySelectorAll('div')].find(d => d.textContent.trim() === 'Age');
+		if (!label) return null;
+		const container = label.closest('div')?.parentElement;
+		return container?.querySelector('input');
+	}`)); err == nil {
+		el.MustInput(fmt.Sprintf("%d", year)); progress <- "  ✅ Age diisi"
+		time.Sleep(1)
+	} else {
+		progress <- "  ⚠️ Input age gak ketemu"
+	}
+
+	// Klik Finish / Continue untuk submit age
+	if btn, err := page.Element(`button[type="submit"]`); err == nil {
+		btn.MustClick(); time.Sleep(2)
 	}
 
 	// Skip onboarding
@@ -114,16 +183,19 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		if strings.Contains(url, "chatgpt.com") && !strings.Contains(url, "/auth") {
 			break
 		}
-		for _, txt := range []string{"Skip","Next","Continue","Done","Get started","Start chatting","Go to ChatGPT"} {
-			if btn, err := page.ElementR("button", txt); err == nil {
+		for _, txt := range []string{"Skip","Next","Done","Get started","Start chatting","Go to ChatGPT"} {
+			if btn, err := page.ElementByJS(rod.Eval(`() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '`+txt+`')`)); err == nil {
 				btn.MustClick(); time.Sleep(2); break
 			}
+		}
+		if btn, err := page.Element(`button[type="submit"]`); err == nil {
+			btn.MustClick(); time.Sleep(2)
 		}
 		time.Sleep(3)
 	}
 
 	progress <- "  ✅ Login. Mengambil session..."
-	url := page.MustInfo().URL
+	url = page.MustInfo().URL
 	if !strings.Contains(url, "chatgpt.com") {
 		page.MustNavigate("https://chatgpt.com/")
 		page.MustWaitLoad()
