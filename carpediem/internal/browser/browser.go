@@ -50,30 +50,33 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 	page.MustWaitLoad()
 	time.Sleep(3 * time.Second)
 
+	// Step 1: coba signup (email + password)
 	progress <- "  📧 Isi email..."
 	page.MustElement("#email").MustInput(email)
-	time.Sleep(1 * time.Second)
-
+	time.Sleep(1)
 	page.MustElementR("button", "Continue").MustClick()
-	time.Sleep(2 * time.Second)
+	time.Sleep(2)
 
-	exists, _, _ := page.Has("text=already exists")
-	if exists {
-		progress <- "  🔁 Akun sudah ada, login..."
-		if el, err := page.Element("a"); err == nil && el.MustText() == "Log in" {
-			el.MustClick()
-		}
-		time.Sleep(2 * time.Second)
+	// Cek "already exists" — kalau iya, retry dari awal pake login
+	if has, _, _ := page.Has("text=already exists"); has {
+		progress <- "  🔁 Akun sudah ada. Retry login..."
+		page.Close()
+
+		page = browser.MustPage("https://chatgpt.com/auth/login").Context(ctx)
+		page.MustWaitLoad()
+		time.Sleep(3)
+
+		page.MustElement("#email").MustInput(email)
+		time.Sleep(1)
+		page.MustElementR("button", "Continue").MustClick()
+		time.Sleep(2)
+
+		page.MustElement("#password").MustInput(password)
+		time.Sleep(1)
+		page.MustElementR("button", "Continue").MustClick()
 	}
 
-	progress <- "  🔑 Isi password..."
-	page.MustElement("#password").MustInput(password)
-	time.Sleep(1 * time.Second)
-
-	if btn, err := page.ElementR("button", "Continue"); err == nil {
-		btn.MustClick()
-	}
-
+	// Step 2: OTP
 	progress <- "  📬 Input OTP di browser..."
 	for i := otpDelay; i > 0; i-- {
 		select {
@@ -85,8 +88,9 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		}
 	}
 
+	// Step 3: about-you (nama + umur)
 	progress <- "  👤 Isi nama & umur..."
-	time.Sleep(2 * time.Second)
+	time.Sleep(2)
 
 	if el, err := page.Element("#name"); err == nil {
 		el.MustInput(name)
@@ -106,6 +110,7 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		time.Sleep(2)
 	}
 
+	// Step 4: skip onboarding / tunggu redirect ke chatgpt.com
 	progress <- "  ⏳ Nunggu redirect ke chatgpt.com..."
 	for i := 0; i < 30; i++ {
 		select {
@@ -122,11 +127,11 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		for _, txt := range []string{"Skip", "Next", "Continue", "Done", "Get started", "Start chatting", "Go to ChatGPT"} {
 			if btn, err := page.ElementR("button", txt); err == nil {
 				btn.MustClick()
-				time.Sleep(2 * time.Second)
+				time.Sleep(2)
 				break
 			}
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(3)
 	}
 
 	progress <- "  ✅ Login berhasil. Mengambil session..."
@@ -135,7 +140,7 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 	if !strings.Contains(url, "chatgpt.com") {
 		page.MustNavigate("https://chatgpt.com/")
 		page.MustWaitLoad()
-		time.Sleep(3 * time.Second)
+		time.Sleep(3)
 	}
 
 	result := page.MustEval(`
