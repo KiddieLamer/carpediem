@@ -10,27 +10,11 @@ import (
 )
 
 var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#00FF87")).
-			Margin(1, 0, 0, 0)
-
-	subStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#A7A7A7")).
-			Margin(0, 0, 1, 0)
-
-	itemStyle = lipgloss.NewStyle().
-			PaddingLeft(4).
-			Foreground(lipgloss.Color("#FFFFFF"))
-
-	selectedStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			Foreground(lipgloss.Color("#00FF87")).
-			Bold(true)
-
-	quitStyle = lipgloss.NewStyle().
-			Margin(1, 0, 0, 0).
-			Foreground(lipgloss.Color("#A7A7A7"))
+	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF87")).Margin(1, 0, 0, 0)
+	subStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#A7A7A7")).Margin(0, 0, 1, 0)
+	itemStyle    = lipgloss.NewStyle().PaddingLeft(4).Foreground(lipgloss.Color("#FFFFFF"))
+	selectedStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("#00FF87")).Bold(true)
+	quitStyle    = lipgloss.NewStyle().Margin(1, 0, 0, 0).Foreground(lipgloss.Color("#A7A7A7"))
 )
 
 type model struct {
@@ -42,7 +26,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		choices: []string{"▶ Run Automation", "  Init Accounts", "  About", "  Exit"},
+		choices: []string{"▶ Run Automation", "  Input Accounts", "  Init File", "  About", "  Exit"},
 	}
 }
 
@@ -77,32 +61,23 @@ func (m model) View() string {
 	}
 
 	s := "\n"
-	s += titleStyle.Render("  ╔══════════════════════════════╗")
-	s += "\n"
-	s += titleStyle.Render("  ║       CARPE DIEM 🦀        ║")
-	s += "\n"
-	s += titleStyle.Render("  ╚══════════════════════════════╝")
-	s += "\n\n"
-	s += subStyle.Render("     ChatGPT Auth Automator")
-	s += "\n\n"
+	s += titleStyle.Render("  ╔══════════════════════════════╗") + "\n"
+	s += titleStyle.Render("  ║       CARPE DIEM 🦀        ║") + "\n"
+	s += titleStyle.Render("  ╚══════════════════════════════╝") + "\n\n"
+	s += subStyle.Render("     ChatGPT Auth Automator") + "\n\n"
 
 	for i, choice := range m.choices {
 		cursor := "  "
 		if m.cursor == i {
 			cursor = "▸ "
-			s += selectedStyle.Render(fmt.Sprintf("%s%s", cursor, choice))
+			s += selectedStyle.Render(fmt.Sprintf("%s%s", cursor, choice)) + "\n"
 		} else {
-			s += itemStyle.Render(fmt.Sprintf("%s%s", cursor, choice))
+			s += itemStyle.Render(fmt.Sprintf("%s%s", cursor, choice)) + "\n"
 		}
-		s += "\n"
 	}
 
 	s += quitStyle.Render("\n  ↑/↓ navigate • enter select • q quit\n")
-
-	// Footer progress
-	s += lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#444444")).
-		Render("\n  ─────────────────────────────\n")
+	s += lipgloss.NewStyle().Foreground(lipgloss.Color("#444444")).Render("\n  ─────────────────────────────\n")
 
 	return s
 }
@@ -124,12 +99,14 @@ func main() {
 	case 0:
 		cmd.RunInteractive()
 	case 1:
-		cmd.Init()
+		cmd.InputAccounts()
 	case 2:
+		cmd.Init()
+	case 3:
 		fmt.Println("\nCarpeDiem v1.0")
 		fmt.Println("Go + Rod browser automation")
 		fmt.Println("github.com/KiddieLamer/carpediem\n")
-	case 3:
+	case 4:
 		return
 	}
 }
