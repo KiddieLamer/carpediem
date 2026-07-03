@@ -1,0 +1,5 @@
+carpediem
+*.txt
+auth*.json
+__pycache__/
+*.pyc
