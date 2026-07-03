@@ -13,7 +13,6 @@ import (
 
 	"github.com/KiddieLamer/carpediem/internal/accounts"
 	"github.com/KiddieLamer/carpediem/internal/browser"
-	"github.com/KiddieLamer/carpediem/internal/invite"
 	"github.com/KiddieLamer/carpediem/internal/nine"
 )
 
@@ -97,13 +96,6 @@ func Run(accountsPath string, otpDelay int, dry bool) {
 		if dry {
 			fmt.Println("  ⏭️  Dry mode")
 			continue
-		}
-
-		fmt.Println("  📨 Kirim invite request...")
-		if err := invite.Send(session.AccessToken); err != nil {
-			fmt.Printf("  ⚠️ Invite: %v\n", err)
-		} else {
-			fmt.Println("  ✅ Invite OK")
 		}
 
 		if err := nine.Import(acc.Email, session.AccessToken); err != nil {

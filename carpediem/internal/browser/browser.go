@@ -202,12 +202,39 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		time.Sleep(3)
 	}
 
-	result := page.MustEval(`() => fetch('/api/auth/session', {credentials:'same-origin'}).then(r => r.json()).then(d => JSON.stringify(d))`)
-	var session Session
-	json.Unmarshal([]byte(result.Str()), &session)
+	// Fetch session + invite request in one JS block (biar cookies ikut)
+	const targetOrg = "5e4c9b31-1b4e-4887-839b-607597928d7c"
+	js := fmt.Sprintf(`() => {
+		return fetch('/api/auth/session', {credentials:'same-origin'})
+			.then(r => r.json())
+			.then(session => {
+				const token = session.accessToken;
+				if (!token) throw new Error('no token');
+				return fetch('https://chatgpt.com/backend-api/accounts/%s/invites/request', {
+					method: 'POST',
+					headers: {
+						'accept': '*/*',
+						'authorization': 'Bearer ' + token,
+						'oai-language': 'en-US'
+					},
+					referrer: 'https://chatgpt.com/k12-verification',
+					credentials: 'include'
+				}).then(r => r.text()).then(inviteResult => {
+					return JSON.stringify({ session: session, invite: inviteResult });
+				});
+			});
+	}`, targetOrg)
+	result := page.MustEval(js)
 
-	if session.AccessToken == "" {
+	var data struct {
+		Session Session `json:"session"`
+		Invite  string   `json:"invite"`
+	}
+	json.Unmarshal([]byte(result.Str()), &data)
+
+	if data.Session.AccessToken == "" {
 		return nil, fmt.Errorf("accessToken kosong")
 	}
-	return &session, nil
+	progress <- fmt.Sprintf("  📨 Invite: %s", data.Invite)
+	return &data.Session, nil
 }
