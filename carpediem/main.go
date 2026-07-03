@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF87")).Margin(1, 0, 0, 0)
+	logoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
 	subStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#A7A7A7")).Margin(0, 0, 1, 0)
 	itemStyle    = lipgloss.NewStyle().PaddingLeft(4).Foreground(lipgloss.Color("#FFFFFF"))
 	selectedStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("#00FF87")).Bold(true)
@@ -61,9 +61,11 @@ func (m model) View() string {
 	}
 
 	s := "\n"
-	s += titleStyle.Render("  ╔══════════════════════════════╗") + "\n"
-	s += titleStyle.Render("  ║       CARPE DIEM 🦀        ║") + "\n"
-	s += titleStyle.Render("  ╚══════════════════════════════╝") + "\n\n"
+	s += logoStyle.Render(` ▓▓▓   ▓▓▓  ▓▓▓▓  ▓▓▓▓  ▓▓▓▓▓    ▓▓▓▓  ▓▓▓ ▓▓▓▓▓ ▓   ▓`) + "\n"
+	s += logoStyle.Render(`▓     ▓   ▓ ▓   ▓ ▓   ▓ ▓        ▓   ▓  ▓  ▓     ▓▓ ▓▓`) + "\n"
+	s += logoStyle.Render(`▓     ▓▓▓▓▓ ▓▓▓▓  ▓▓▓▓  ▓▓▓▓     ▓   ▓  ▓  ▓▓▓▓  ▓ ▓ ▓`) + "\n"
+	s += logoStyle.Render(`▓     ▓   ▓ ▓  ▓  ▓     ▓        ▓   ▓  ▓  ▓     ▓   ▓`) + "\n"
+	s += logoStyle.Render(` ▓▓▓  ▓   ▓ ▓   ▓ ▓     ▓▓▓▓▓    ▓▓▓▓  ▓▓▓ ▓▓▓▓▓ ▓   ▓`) + "\n\n"
 	s += subStyle.Render("     ChatGPT Auth Automator") + "\n\n"
 
 	for i, choice := range m.choices {
