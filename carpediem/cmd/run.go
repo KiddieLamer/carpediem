@@ -3,14 +3,17 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
 	"github.com/KiddieLamer/carpediem/internal/accounts"
 	"github.com/KiddieLamer/carpediem/internal/browser"
+	"github.com/KiddieLamer/carpediem/internal/invite"
 	"github.com/KiddieLamer/carpediem/internal/nine"
 )
 
@@ -85,9 +88,22 @@ func Run(accountsPath string, otpDelay int, dry bool) {
 		}
 		fmt.Printf("  ✅ Login: %s\n", email)
 
+		// Simpan session ke ~/.carpediem/<email>.json
+		sessionPath := filepath.Join(os.Getenv("HOME"), ".carpediem", email+".json")
+		sessionData, _ := json.MarshalIndent(session, "", "  ")
+		os.WriteFile(sessionPath, sessionData, 0600)
+		fmt.Printf("  💾 Session saved: %s\n", sessionPath)
+
 		if dry {
 			fmt.Println("  ⏭️  Dry mode")
 			continue
+		}
+
+		fmt.Println("  📨 Kirim invite request...")
+		if err := invite.Send(session.AccessToken); err != nil {
+			fmt.Printf("  ⚠️ Invite: %v\n", err)
+		} else {
+			fmt.Println("  ✅ Invite OK")
 		}
 
 		if err := nine.Import(acc.Email, session.AccessToken); err != nil {

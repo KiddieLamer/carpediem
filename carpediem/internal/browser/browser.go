@@ -44,15 +44,15 @@ func randPass() string {
 	return string(b)
 }
 
-func randYear() int { return 1975 + rand.Intn(31) }
+func randAge() int { return 18 + rand.Intn(43) }
 
 func Run(ctx context.Context, email, password string, otpDelay int, progress chan<- string) (*Session, error) {
 	defer close(progress)
 
 	name := randName()
-	year := randYear()
-	progress <- fmt.Sprintf("  🆔 %s (%d)", name, year)
+	age := randAge()
 
+	progress <- fmt.Sprintf("  🆔 %s (%d)", name, age)
 	progress <- "  🚀 Launching browser..."
 	u := launcher.New().
 		Headless(false).
@@ -160,7 +160,7 @@ func Run(ctx context.Context, email, password string, otpDelay int, progress cha
 		const container = label.closest('div')?.parentElement;
 		return container?.querySelector('input');
 	}`)); err == nil {
-		el.MustInput(fmt.Sprintf("%d", year)); progress <- "  ✅ Age diisi"
+		el.MustInput(fmt.Sprintf("%d", age)); progress <- "  ✅ Age diisi"
 		time.Sleep(1)
 	} else {
 		progress <- "  ⚠️ Input age gak ketemu"
