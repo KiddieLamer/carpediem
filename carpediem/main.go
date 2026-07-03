@@ -26,7 +26,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		choices: []string{"▶ Run Automation", "  Input Accounts", "  Init File", "  About", "  Exit"},
+		choices: []string{"▶ Run Automation", "  Input Accounts", "  Import Sessions", "  Init File", "  About", "  Exit"},
 	}
 }
 
@@ -103,12 +103,14 @@ func main() {
 	case 1:
 		cmd.InputAccounts()
 	case 2:
-		cmd.Init()
+		cmd.ImportSessions()
 	case 3:
-		fmt.Println("\nCarpeDiem v1.0")
+		cmd.Init()
+	case 4:
+		fmt.Println("\nCarpeDiem v1.2")
 		fmt.Println("Go + Rod browser automation")
 		fmt.Println("github.com/KiddieLamer/carpediem\n")
-	case 4:
+	case 5:
 		return
 	}
 }
