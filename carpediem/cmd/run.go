@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -12,6 +13,29 @@ import (
 	"github.com/KiddieLamer/carpediem/internal/browser"
 	"github.com/KiddieLamer/carpediem/internal/nine"
 )
+
+func RunInteractive() {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("\n📁 Path ke accounts.txt (enter buat default ~/.carpediem/accounts.txt): ")
+	path, _ := reader.ReadString('\n')
+	path = strings.TrimSpace(path)
+
+	fmt.Print("⏱️  OTP delay detik (enter buat default 60): ")
+	delayStr, _ := reader.ReadString('\n')
+	delayStr = strings.TrimSpace(delayStr)
+
+	delay := 60
+	if delayStr != "" {
+		fmt.Sscanf(delayStr, "%d", &delay)
+	}
+
+	fmt.Print("🧪 Dry run? (skip 9router) [y/N]: ")
+	dryStr, _ := reader.ReadString('\n')
+	dry := strings.TrimSpace(strings.ToLower(dryStr)) == "y"
+
+	Run(path, delay, dry)
+}
 
 func Run(accountsPath string, otpDelay int, dry bool) {
 	accs, err := accounts.Load(accountsPath)
@@ -27,13 +51,13 @@ func Run(accountsPath string, otpDelay int, dry bool) {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sig
+		fmt.Println("\n⚠️  Dihentikan.")
 		cancel()
 	}()
 
 	for i, acc := range accs {
 		select {
 		case <-ctx.Done():
-			fmt.Println("\n⚠️  Dihentikan.")
 			return
 		default:
 		}
@@ -62,7 +86,7 @@ func Run(accountsPath string, otpDelay int, dry bool) {
 		fmt.Printf("  ✅ Login: %s\n", email)
 
 		if dry {
-			fmt.Println("  ⏭️  Dry mode — skip 9router")
+			fmt.Println("  ⏭️  Dry mode")
 			continue
 		}
 
