@@ -23,28 +23,27 @@ func Load(path string) ([]Account, error) {
 
 	data, err := os.ReadFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("baca file gagal: %w.\nBuat dulu: carpediem init", err)
+		return nil, fmt.Errorf("baca file gagal: %w\nBuat dulu: carpediem init", err)
 	}
 
 	var accounts []Account
-	for i, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
+
+		acc := Account{Email: line}
+		if strings.Contains(line, ":") {
+			parts := strings.SplitN(line, ":", 2)
+			acc.Email = strings.TrimSpace(parts[0])
+			acc.Password = strings.TrimSpace(parts[1])
 		}
-		accounts = append(accounts, Account{
-			Email:    strings.TrimSpace(parts[0]),
-			Password: strings.TrimSpace(parts[1]),
-		})
-		_ = i
+		accounts = append(accounts, acc)
 	}
 
 	if len(accounts) == 0 {
-		return nil, fmt.Errorf("accounts.txt kosong atau format salah")
+		return nil, fmt.Errorf("accounts.txt kosong")
 	}
 	return accounts, nil
 }
